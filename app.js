@@ -1,19 +1,23 @@
 /* ============================================================
    ESP8266 OTA Admin Panel — app.js
-   Storage: GitHub Gist (sync antar device)
+   Storage: GitHub Contents API (file di repo)
    ============================================================ */
 
-/* ── CONFIG — WAJIB DIISI ───────────────────────────────────── */
-const ADMIN_PASS    = "esp8266admin";   // Ganti password admin
-const GITHUB_TOKEN  = "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";
-const GIST_ID       = "03f6296a0551750111e6a2b8ceef4ab9";
+/* ── CONFIG ─────────────────────────────────────────────────── */
+const ADMIN_PASS   = "esp8266admin";          // Ganti password admin
+const GH_TOKEN     = "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";      // Token dengan scope: repo (bukan gist)
+const GH_OWNER     = "Ironwolf-Racing";        // Username GitHub kamu
+const GH_REPO      = "Update";        // Nama repo GitHub Pages kamu
+const GH_BRANCH    = "main";                   // Branch repo (main atau master)
+const DB_FILE      = "firmware-db.json";       // Nama file database di repo
 
 /* ── STATE ──────────────────────────────────────────────────── */
 let firmwareDB   = [];
 let selectedFile = null;
 let isSaving     = false;
+let dbFileSHA    = null;   // SHA file diperlukan GitHub API untuk update
 
-/* ── DOM REFS ───────────────────────────────────────────────── */
+/* ── DOM ────────────────────────────────────────────────────── */
 const $ = id => document.getElementById(id);
 
 /* ── INIT ───────────────────────────────────────────────────── */
@@ -24,7 +28,6 @@ function init() {
   $("file-input").addEventListener("change", () => onFileSelect($("file-input")));
   $("password-input").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
 
-  // Drag & drop
   const zone = $("upload-zone");
   zone.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("dragover"); });
   zone.addEventListener("dragleave", ()  => zone.classList.remove("dragover"));
@@ -35,126 +38,133 @@ function init() {
     if (f.length > 0) { $("file-input").files = f; onFileSelect($("file-input")); }
   });
 
-  if (!GITHUB_TOKEN || !GIST_ID) showConfigWarning();
-
   if (sessionStorage.getItem("ota_auth") === "1") showAdmin();
 }
 
-/* ── CONFIG WARNING ─────────────────────────────────────────── */
-function showConfigWarning() {
-  const warn = document.createElement("div");
-  warn.innerHTML = `
-    <div id="config-bar" style="
-      position:fixed; top:0; left:0; right:0; z-index:9999;
-      background:#1a0a00; border-bottom:2px solid #ffaa00;
-      color:#ffaa00; font-family:'Share Tech Mono',monospace;
-      font-size:11px; letter-spacing:1px; padding:10px 20px; text-align:center;
-    ">
-      ⚠ GITHUB_TOKEN dan GIST_ID belum diisi di app.js — data hanya tersimpan lokal.
-      <a href="javascript:void(0)" onclick="toggleGuide()" style="color:#ffaa00;margin-left:8px;text-decoration:underline;">Lihat cara setup ▼</a>
-    </div>
-    <div id="setup-guide" style="display:none; position:fixed; top:41px; left:0; right:0; z-index:9998;
-      background:#0f1417; border-bottom:1px solid #1a2a1a; color:#c8e6c8;
-      font-family:'Share Tech Mono',monospace; font-size:11px; padding:16px 24px; line-height:2.2;
-    ">
-      <b style="color:#00ff88">Cara Setup GitHub Gist (cloud storage):</b><br>
-      1. Buka <a href="https://gist.github.com" target="_blank" style="color:#00ff88">gist.github.com</a>
-         → Buat gist baru → nama file: <code>firmware-db.json</code> → isi: <code>[]</code> → <b>Create secret gist</b><br>
-      2. Copy ID dari URL: gist.github.com/username/<b style="color:#ffaa00">INI_GIST_ID</b><br>
-      3. Buka <a href="https://github.com/settings/tokens" target="_blank" style="color:#00ff88">github.com/settings/tokens</a>
-         → Generate new token (classic) → centang scope <b>gist</b> → Copy token<br>
-      4. Buka <b>app.js</b>, isi <code>GITHUB_TOKEN</code> dan <code>GIST_ID</code> di baris paling atas<br>
-      5. Commit & push ke GitHub → selesai ✓
-    </div>
-  `;
-  document.body.prepend(warn);
-  document.body.style.paddingTop = "41px";
+/* ── GITHUB CONTENTS API ────────────────────────────────────── */
+const GH_API = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents`;
+
+function ghHeaders() {
+  return {
+    "Authorization": `token ${GH_TOKEN}`,
+    "Accept": "application/vnd.github.v3+json",
+    "Content-Type": "application/json"
+  };
 }
 
-function toggleGuide() {
-  const g = $("setup-guide");
-  const bar = $("config-bar");
-  if (!g) return;
-  const isOpen = g.style.display !== "none";
-  g.style.display = isOpen ? "none" : "block";
-  document.body.style.paddingTop = isOpen ? "41px" : (41 + g.offsetHeight) + "px";
-}
-
-/* ── GIST DB ────────────────────────────────────────────────── */
+/* Load firmware-db.json dari repo */
 async function loadDB() {
-  if (!GITHUB_TOKEN || !GIST_ID) {
-    const raw = localStorage.getItem("esp8266_firmware_db");
-    firmwareDB = raw ? JSON.parse(raw) : [];
-    return;
-  }
   try {
     showLoadingState(true);
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: {
-        "Authorization": `token ${GITHUB_TOKEN}`,
-        "Accept": "application/vnd.github.v3+json",
-        "Cache-Control": "no-cache"
-      }
+    const res = await fetch(`${GH_API}/${DB_FILE}?ref=${GH_BRANCH}&t=${Date.now()}`, {
+      headers: ghHeaders()
     });
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(`HTTP ${res.status} — ${errBody.message || "unknown"}`);
-    }
-    const gist = await res.json();
 
-    // Ambil file pertama yang ada (tidak hardcode nama file)
-    const files = Object.values(gist.files);
-    if (files.length === 0) throw new Error("Gist kosong, tidak ada file");
-    const content = files[0].content || "[]";
-
-    // Simpan nama file yang ditemukan untuk saveDB
-    window._gistFileName = files[0].filename;
-
-    try {
-      firmwareDB = JSON.parse(content);
-    } catch {
-      // Kalau isi file bukan JSON valid, mulai dari array kosong
+    if (res.status === 404) {
+      // File belum ada di repo → mulai kosong, akan dibuat saat pertama save
       firmwareDB = [];
+      dbFileSHA  = null;
+      return;
     }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`HTTP ${res.status}: ${err.message || "unknown"}`);
+    }
+
+    const data    = await res.json();
+    dbFileSHA     = data.sha;
+    const decoded = atob(data.content.replace(/\n/g, ""));
+    firmwareDB    = JSON.parse(decoded);
+
   } catch (err) {
     console.error("loadDB:", err);
-    showToast("⚠ Gagal load Gist: " + err.message, true);
+    showToast("⚠ Gagal load: " + err.message, true);
     firmwareDB = [];
   } finally {
     showLoadingState(false);
   }
 }
 
+/* Simpan firmware-db.json ke repo (create atau update) */
 async function saveDB() {
   if (isSaving) return;
-  if (!GITHUB_TOKEN || !GIST_ID) {
-    localStorage.setItem("esp8266_firmware_db", JSON.stringify(firmwareDB));
-    return;
-  }
   isSaving = true;
+
   try {
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: "PATCH",
-      headers: {
-        "Authorization": `token ${GITHUB_TOKEN}`,
-        "Accept": "application/vnd.github.v3+json",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        files: {
-          [window._gistFileName || "firmware-db.json"]: {
-            content: JSON.stringify(firmwareDB, null, 2)
-          }
-        }
-      })
+    // Buat salinan tanpa field `data` (base64 binary) biar file JSON tidak terlalu besar
+    const dbToSave = firmwareDB.map(f => {
+      const { data, ...rest } = f;
+      return rest;
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(dbToSave, null, 2))));
+
+    const body = {
+      message: `OTA: update firmware-db.json`,
+      content: content,
+      branch:  GH_BRANCH
+    };
+    if (dbFileSHA) body.sha = dbFileSHA;  // wajib ada untuk update
+
+    const res = await fetch(`${GH_API}/${DB_FILE}`, {
+      method:  "PUT",
+      headers: ghHeaders(),
+      body:    JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`HTTP ${res.status}: ${err.message || "unknown"}`);
+    }
+
+    const result = await res.json();
+    dbFileSHA = result.content.sha;  // update SHA untuk request berikutnya
+
   } catch (err) {
     console.error("saveDB:", err);
-    showToast("⚠ Gagal simpan ke Gist: " + err.message, true);
+    showToast("⚠ Gagal simpan: " + err.message, true);
   } finally {
     isSaving = false;
   }
+}
+
+/* Upload file .bin ke folder firmware/ di repo */
+async function uploadBinToRepo(filename, base64DataUrl) {
+  // base64DataUrl format: "data:application/octet-stream;base64,XXXX"
+  const base64 = base64DataUrl.split(",")[1];
+  const path   = `firmware/${filename}`;
+
+  // Cek apakah file sudah ada (butuh SHA untuk overwrite)
+  let existingSHA = null;
+  try {
+    const check = await fetch(`${GH_API}/${path}?ref=${GH_BRANCH}`, { headers: ghHeaders() });
+    if (check.ok) {
+      const d = await check.json();
+      existingSHA = d.sha;
+    }
+  } catch (_) {}
+
+  const body = {
+    message: `OTA: upload firmware ${filename}`,
+    content: base64,
+    branch:  GH_BRANCH
+  };
+  if (existingSHA) body.sha = existingSHA;
+
+  const res = await fetch(`${GH_API}/${path}`, {
+    method:  "PUT",
+    headers: ghHeaders(),
+    body:    JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Upload .bin gagal HTTP ${res.status}: ${err.message || ""}`);
+  }
+
+  // Return raw URL yang bisa diakses ESP8266
+  return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}`;
 }
 
 /* ── AUTH ───────────────────────────────────────────────────── */
@@ -190,7 +200,7 @@ function showLoadingState(on) {
   if (on) {
     $("firmware-list").innerHTML = `
       <div class="empty-state" style="color:#00aa55;letter-spacing:2px;">
-        ⟳ &nbsp;Memuat dari GitHub Gist...
+        ⟳ &nbsp;Memuat dari GitHub...
       </div>`;
   }
 }
@@ -214,42 +224,55 @@ function uploadFirmware() {
 
   const reader = new FileReader();
   reader.onload = async function (e) {
-    const entry = {
-      id:         Date.now().toString(),
-      name:       selectedFile.name,
-      version:    version,
-      notes:      notes,
-      size:       selectedFile.size,
-      uploadedAt: new Date().toISOString(),
-      data:       e.target.result,
-      active:     false
-    };
-
     const bar  = $("progress-bar");
     const fill = $("progress-fill");
     bar.style.display = "block";
+
+    // Progress animasi
     let p = 0;
     const iv = setInterval(() => {
-      p += Math.random() * 18;
-      fill.style.width = Math.min(p, 80) + "%";
-    }, 100);
+      p += Math.random() * 12;
+      fill.style.width = Math.min(p, 70) + "%";
+    }, 150);
 
-    firmwareDB.push(entry);
-    if (firmwareDB.length === 1) firmwareDB[0].active = true;
+    try {
+      // 1. Upload file .bin ke repo
+      showToast("⬆ Uploading .bin ke GitHub...");
+      const downloadUrl = await uploadBinToRepo(selectedFile.name, e.target.result);
 
-    await saveDB();
+      fill.style.width = "85%";
 
-    clearInterval(iv);
-    fill.style.width = "100%";
-    renderFirmwareList();
+      // 2. Simpan metadata ke firmware-db.json
+      const entry = {
+        id:          Date.now().toString(),
+        name:        selectedFile.name,
+        version:     version,
+        notes:       notes,
+        size:        selectedFile.size,
+        uploadedAt:  new Date().toISOString(),
+        downloadUrl: downloadUrl,   // URL raw GitHub — langsung bisa diakses ESP8266
+        active:      false
+      };
 
-    setTimeout(() => {
+      firmwareDB.push(entry);
+      if (firmwareDB.length === 1) firmwareDB[0].active = true;
+
+      await saveDB();
+
+      clearInterval(iv);
+      fill.style.width = "100%";
+      renderFirmwareList();
+
+      setTimeout(() => { bar.style.display = "none"; fill.style.width = "0%"; }, 600);
+      resetUploadForm();
+      showToast(`✓ ${entry.name} ${version} berhasil diupload!`);
+
+    } catch (err) {
+      clearInterval(iv);
       bar.style.display = "none";
       fill.style.width  = "0%";
-    }, 500);
-
-    resetUploadForm();
-    showToast(`✓ ${entry.name} ${version} uploaded & synced!`);
+      showToast("⚠ Upload gagal: " + err.message, true);
+    }
   };
   reader.readAsDataURL(selectedFile);
 }
@@ -278,7 +301,7 @@ async function activateFirmware(id) {
   firmwareDB.forEach(f => f.active = (f.id === id));
   await saveDB();
   renderFirmwareList();
-  showToast("✓ Firmware aktif diubah & synced");
+  showToast("✓ Firmware aktif diubah");
 }
 
 /* ── DELETE ─────────────────────────────────────────────────── */
@@ -288,7 +311,7 @@ async function deleteFirmware(id) {
   firmwareDB = firmwareDB.filter(f => f.id !== id);
   await saveDB();
   renderFirmwareList();
-  showToast("✓ Firmware dihapus & synced");
+  showToast("✓ Firmware dihapus");
 }
 
 /* ── RENDER LIST ────────────────────────────────────────────── */
@@ -320,10 +343,11 @@ function renderFirmwareList() {
 
 /* ── API URLS ───────────────────────────────────────────────── */
 function updateAPIUrls() {
-  const base = window.location.origin +
-    window.location.pathname.replace(/index\.html$/, "").replace(/([^/])$/, "$1/");
-  $("api-check-url").textContent = base + "ota-check.html";
-  $("api-dl-url").textContent    = base + "ota-download.html?id={firmware_id}";
+  // ota-check.html baca langsung dari raw GitHub (bukan GitHub Pages)
+  // supaya ESP8266 dapat data terbaru tanpa cache
+  const rawBase = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}`;
+  $("api-check-url").textContent = rawBase + "/ota-check.json";
+  $("api-dl-url").textContent    = rawBase + "/firmware/{nama-file.bin}";
 }
 
 /* ── UTILS ──────────────────────────────────────────────────── */
