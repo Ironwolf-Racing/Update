@@ -33,9 +33,11 @@ body {
   font-family: var(--mono);
   min-height:  100vh;
   display:     flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  overflow:    hidden;
+  overflow-x:  hidden;
+  overflow-y:  auto;
+  padding:     40px 16px;
 }
 
 /* Grid background */
