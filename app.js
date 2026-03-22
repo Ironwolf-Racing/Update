@@ -5,7 +5,7 @@
 
 /* ── CONFIG — WAJIB DIISI ───────────────────────────────────── */
 const ADMIN_PASS    = "esp8266admin";   // Ganti password admin
-const GITHUB_TOKEN  = "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";
+const GITHUB_TOKEN  = "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";
 const GIST_ID       = "03f6296a0551750111e6a2b8ceef4ab9";
 
 /* ── STATE ──────────────────────────────────────────────────── */
