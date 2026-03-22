@@ -1,0 +1,541 @@
+/* ============================================================
+   ESP8266 OTA Admin Panel — Stylesheet
+   File: style.css
+   ============================================================ */
+
+/* ── VARIABLES ─────────────────────────────────────────────── */
+:root {
+  --bg:         #0a0d0f;
+  --panel:      #0f1417;
+  --border:     #1a2a1a;
+  --green:      #00ff88;
+  --green-dim:  #00aa55;
+  --green-dark: #003322;
+  --red:        #ff3344;
+  --amber:      #ffaa00;
+  --text:       #c8e6c8;
+  --text-dim:   #4a6a4a;
+  --mono:       'Share Tech Mono', monospace;
+  --ui:         'Rajdhani', sans-serif;
+}
+
+/* ── RESET ──────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── BASE ───────────────────────────────────────────────────── */
+body {
+  background:  var(--bg);
+  color:       var(--text);
+  font-family: var(--mono);
+  min-height:  100vh;
+  display:     flex;
+  align-items: center;
+  justify-content: center;
+  overflow:    hidden;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ── CORNER DECORATIONS ─────────────────────────────────────── */
+.corner-deco {
+  position: fixed;
+  width:  60px;
+  height: 60px;
+  border-color: var(--green-dim);
+  border-style:  solid;
+  opacity: 0.4;
+  z-index: 1;
+}
+.corner-deco.tl { top: 20px;    left:  20px; border-width: 2px 0 0 2px; }
+.corner-deco.tr { top: 20px;    right: 20px; border-width: 2px 2px 0 0; }
+.corner-deco.bl { bottom: 20px; left:  20px; border-width: 0 0 2px 2px; }
+.corner-deco.br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
+
+/* ── PANEL (shared card) ────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border:     1px solid var(--border);
+  padding:    28px;
+  position:   relative;
+  z-index:    1;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0.6;
+}
+
+/* ── SHARED INPUTS ──────────────────────────────────────────── */
+.field-label {
+  display:       block;
+  font-family:   var(--ui);
+  font-size:     11px;
+  font-weight:   500;
+  letter-spacing: 3px;
+  color:         var(--green-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+input[type="password"],
+input[type="text"] {
+  width:        100%;
+  background:   var(--bg);
+  border:       1px solid var(--border);
+  color:        var(--green);
+  font-family:  var(--mono);
+  font-size:    14px;
+  padding:      12px 16px;
+  outline:      none;
+  transition:   border-color 0.2s;
+  letter-spacing: 1px;
+}
+input[type="password"] { letter-spacing: 2px; }
+input:focus { border-color: var(--green-dim); }
+
+/* ── BUTTONS ────────────────────────────────────────────────── */
+.btn {
+  width:          100%;
+  background:     transparent;
+  border:         1px solid var(--green);
+  color:          var(--green);
+  font-family:    var(--ui);
+  font-size:      13px;
+  font-weight:    700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  padding:        14px;
+  cursor:         pointer;
+  margin-top:     20px;
+  transition:     all 0.2s;
+  position:       relative;
+  overflow:       hidden;
+}
+.btn::before {
+  content:    '';
+  position:   absolute;
+  inset:      0;
+  background: var(--green);
+  opacity:    0;
+  transition: opacity 0.2s;
+}
+.btn:hover::before { opacity: 0.1; }
+.btn:hover         { box-shadow: 0 0 20px rgba(0,255,136,0.3); }
+.btn:active        { transform: scale(0.99); }
+
+.btn-upload { margin-top: 0; }
+
+.logout-btn {
+  background:     transparent;
+  border:         1px solid #2a1a1a;
+  color:          var(--text-dim);
+  font-family:    var(--mono);
+  font-size:      10px;
+  letter-spacing: 2px;
+  padding:        6px 12px;
+  cursor:         pointer;
+  transition:     all 0.2s;
+  text-transform: uppercase;
+}
+.logout-btn:hover {
+  border-color: var(--red);
+  color:        var(--red);
+}
+
+.btn-small {
+  background:     transparent;
+  font-family:    var(--mono);
+  font-size:      10px;
+  letter-spacing: 1px;
+  padding:        5px 10px;
+  cursor:         pointer;
+  transition:     all 0.2s;
+  border:         1px solid;
+}
+.btn-activate { border-color: var(--green-dim); color: var(--green-dim); }
+.btn-activate:hover {
+  border-color: var(--green);
+  color:        var(--green);
+  box-shadow:   0 0 10px rgba(0,255,136,0.2);
+}
+.btn-delete { border-color: #2a1a1a; color: var(--text-dim); }
+.btn-delete:hover {
+  border-color: var(--red);
+  color:        var(--red);
+}
+
+/* ── LOGIN SCREEN ───────────────────────────────────────────── */
+#login-screen {
+  width:     380px;
+  animation: fadeIn 0.6s ease;
+  position:  relative;
+  z-index:   1;
+}
+
+.login-header {
+  text-align:    center;
+  margin-bottom: 32px;
+}
+
+.login-header .chip {
+  display:        inline-block;
+  font-family:    var(--ui);
+  font-size:      10px;
+  font-weight:    700;
+  letter-spacing: 4px;
+  color:          var(--green);
+  border:         1px solid var(--green-dim);
+  padding:        4px 12px;
+  margin-bottom:  16px;
+  text-transform: uppercase;
+}
+
+.login-header h1 {
+  font-family:    var(--ui);
+  font-size:      28px;
+  font-weight:    700;
+  color:          var(--green);
+  text-shadow:    0 0 20px rgba(0,255,136,0.5);
+  letter-spacing: 2px;
+}
+
+.login-header p {
+  font-size:      11px;
+  color:          var(--text-dim);
+  margin-top:     6px;
+  letter-spacing: 1px;
+}
+
+.error-msg {
+  color:          var(--red);
+  font-size:      11px;
+  margin-top:     12px;
+  letter-spacing: 1px;
+  opacity:        0;
+  transition:     opacity 0.3s;
+}
+.error-msg.show { opacity: 1; }
+
+/* ── ADMIN PANEL ────────────────────────────────────────────── */
+#admin-panel {
+  display:    none;
+  width:      700px;
+  max-width:  95vw;
+  animation:  fadeIn 0.5s ease;
+  position:   relative;
+  z-index:    1;
+}
+
+.admin-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  margin-bottom:   24px;
+}
+
+.admin-header h2 {
+  font-family:    var(--ui);
+  font-size:      22px;
+  font-weight:    700;
+  color:          var(--green);
+  letter-spacing: 2px;
+  text-shadow:    0 0 15px rgba(0,255,136,0.4);
+}
+
+.admin-subtitle {
+  font-size:      10px;
+  color:          var(--text-dim);
+  margin-top:     4px;
+  letter-spacing: 1px;
+}
+
+.admin-header-right {
+  display:     flex;
+  align-items: center;
+  gap:         16px;
+}
+
+.status-dot {
+  display:        flex;
+  align-items:    center;
+  gap:            8px;
+  font-size:      11px;
+  color:          var(--green-dim);
+  letter-spacing: 1px;
+}
+
+.dot {
+  width:      8px;
+  height:     8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation:  pulse 2s infinite;
+}
+
+/* ── UPLOAD ZONE ────────────────────────────────────────────── */
+.upload-zone {
+  border:        1px dashed var(--green-dim);
+  padding:       40px 20px;
+  text-align:    center;
+  cursor:        pointer;
+  transition:    all 0.3s;
+  position:      relative;
+  background:    rgba(0,255,136,0.02);
+  margin-bottom: 20px;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+  border-color: var(--green);
+  background:   rgba(0,255,136,0.05);
+  box-shadow:   inset 0 0 30px rgba(0,255,136,0.05);
+}
+
+.upload-zone input[type="file"] {
+  position: absolute;
+  inset:    0;
+  opacity:  0;
+  cursor:   pointer;
+  width:    100%;
+  height:   100%;
+  z-index:  2;
+}
+
+.upload-icon {
+  font-size:     36px;
+  margin-bottom: 12px;
+  filter:        grayscale(1) brightness(0.6);
+  transition:    filter 0.3s;
+}
+.upload-zone.has-file .upload-icon { filter: none; }
+
+.upload-title {
+  font-family:    var(--ui);
+  font-size:      15px;
+  font-weight:    500;
+  color:          var(--text);
+  letter-spacing: 1px;
+}
+
+.upload-sub {
+  font-size:      11px;
+  color:          var(--text-dim);
+  margin-top:     6px;
+  letter-spacing: 1px;
+}
+
+/* ── FORM ROW ───────────────────────────────────────────────── */
+.row {
+  display:       flex;
+  gap:           16px;
+  margin-bottom: 16px;
+}
+.field { flex: 1; }
+
+/* ── PROGRESS BAR ───────────────────────────────────────────── */
+.progress-bar {
+  height:     2px;
+  background: var(--border);
+  margin-top: 16px;
+  overflow:   hidden;
+  display:    none;
+}
+
+.progress-fill {
+  height:     100%;
+  background: linear-gradient(90deg, var(--green-dark), var(--green));
+  width:      0%;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px var(--green);
+}
+
+/* ── SECTION TITLE ──────────────────────────────────────────── */
+.section-title {
+  font-family:    var(--ui);
+  font-size:      11px;
+  font-weight:    700;
+  letter-spacing: 4px;
+  color:          var(--green-dim);
+  text-transform: uppercase;
+  margin:         24px 0 12px;
+  display:        flex;
+  align-items:    center;
+  gap:            10px;
+}
+.section-title::after {
+  content:    '';
+  flex:       1;
+  height:     1px;
+  background: var(--border);
+}
+
+/* ── FIRMWARE LIST ──────────────────────────────────────────── */
+.firmware-list {
+  display:        flex;
+  flex-direction: column;
+  gap:            8px;
+}
+
+.firmware-item {
+  background:  var(--bg);
+  border:      1px solid var(--border);
+  padding:     14px 18px;
+  display:     flex;
+  align-items: center;
+  justify-content: space-between;
+  transition:  border-color 0.2s;
+}
+.firmware-item:hover  { border-color: var(--green-dark); }
+.firmware-item.active { border-color: var(--green-dim); }
+
+.fw-info  { flex: 1; }
+
+.fw-name {
+  font-size:     13px;
+  color:         var(--green);
+  margin-bottom: 3px;
+}
+.fw-name span { color: var(--amber); }
+
+.fw-meta {
+  font-size:      10px;
+  color:          var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.fw-badge {
+  font-family:    var(--ui);
+  font-size:      9px;
+  font-weight:    700;
+  letter-spacing: 2px;
+  padding:        3px 8px;
+  margin-left:    12px;
+  text-transform: uppercase;
+}
+.badge-active {
+  border:     1px solid var(--green);
+  color:      var(--green);
+  background: rgba(0,255,136,0.08);
+}
+.badge-inactive {
+  border: 1px solid var(--text-dim);
+  color:  var(--text-dim);
+}
+
+.fw-actions {
+  display:     flex;
+  gap:         8px;
+  margin-left: 16px;
+}
+
+/* ── API BOX ────────────────────────────────────────────────── */
+.api-box {
+  background:  var(--bg);
+  border:      1px solid var(--border);
+  border-left: 3px solid var(--green-dim);
+  padding:     14px 18px;
+}
+.api-box--secondary { margin-top: 8px; }
+
+.api-method {
+  font-size:      10px;
+  letter-spacing: 2px;
+  color:          var(--amber);
+  margin-bottom:  4px;
+}
+
+.api-url {
+  font-size:   12px;
+  color:       var(--green);
+  word-break:  break-all;
+}
+
+.api-desc {
+  font-size:      10px;
+  color:          var(--text-dim);
+  margin-top:     4px;
+  letter-spacing: 0.5px;
+}
+
+/* ── EMPTY STATE ────────────────────────────────────────────── */
+.empty-state {
+  text-align:     center;
+  padding:        30px;
+  color:          var(--text-dim);
+  font-size:      11px;
+  letter-spacing: 1px;
+  border:         1px dashed var(--border);
+  line-height:    1.8;
+}
+
+/* ── TOAST ──────────────────────────────────────────────────── */
+.toast {
+  position:     fixed;
+  bottom:       30px;
+  right:        30px;
+  background:   var(--panel);
+  border:       1px solid var(--green);
+  color:        var(--green);
+  font-family:  var(--mono);
+  font-size:    12px;
+  padding:      14px 20px;
+  letter-spacing: 1px;
+  transform:    translateX(200%);
+  transition:   transform 0.3s ease;
+  z-index:      1000;
+  max-width:    300px;
+  box-shadow:   0 0 20px rgba(0,255,136,0.2);
+}
+.toast.show  { transform: translateX(0); }
+.toast.error {
+  border-color: var(--red);
+  color:        var(--red);
+  box-shadow:   0 0 20px rgba(255,51,68,0.2);
+}
+
+/* ── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}

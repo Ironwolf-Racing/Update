@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP8266 OTA Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Corner decorations -->
+  <div class="corner-deco tl"></div>
+  <div class="corner-deco tr"></div>
+  <div class="corner-deco bl"></div>
+  <div class="corner-deco br"></div>
+
+  <!-- ── LOGIN SCREEN ── -->
+  <div id="login-screen">
+    <div class="login-header">
+      <div class="chip">🔒 Restricted Access</div>
+      <h1>ESP8266 OTA</h1>
+      <p>FIRMWARE MANAGEMENT SYSTEM</p>
+    </div>
+    <div class="panel">
+      <label class="field-label" for="password-input">Admin Password</label>
+      <input type="password" id="password-input" placeholder="••••••••" autocomplete="off">
+      <button class="btn" id="login-btn">▶ AUTHENTICATE</button>
+      <p class="error-msg" id="login-error">⚠ ACCESS DENIED — Wrong password</p>
+    </div>
+  </div>
+
+  <!-- ── ADMIN PANEL ── -->
+  <div id="admin-panel">
+    <div class="panel">
+
+      <!-- Header -->
+      <div class="admin-header">
+        <div>
+          <h2>⚡ FIRMWARE MANAGER</h2>
+          <div class="admin-subtitle">ESP8266 OTA UPDATE SYSTEM</div>
+        </div>
+        <div class="admin-header-right">
+          <div class="status-dot">
+            <div class="dot"></div>SERVER ONLINE
+          </div>
+          <button class="logout-btn" id="logout-btn">LOGOUT</button>
+        </div>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".bin,.ino.bin">
+        <div class="upload-icon" id="upload-icon">📦</div>
+        <div class="upload-title" id="upload-title">DROP FIRMWARE FILE HERE</div>
+        <div class="upload-sub" id="upload-sub">Accepts .bin files — ESP8266 compiled firmware</div>
+      </div>
+
+      <!-- Version & Notes -->
+      <div class="row">
+        <div class="field">
+          <label class="field-label" for="version-input">Version Tag</label>
+          <input type="text" id="version-input" placeholder="e.g. v1.2.0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="notes-input">Release Notes</label>
+          <input type="text" id="notes-input" placeholder="e.g. Fix sensor bug">
+        </div>
+      </div>
+
+      <button class="btn btn-upload" id="upload-btn">⬆ UPLOAD &amp; PUBLISH FIRMWARE</button>
+
+      <!-- Progress bar -->
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <!-- Firmware List -->
+      <div class="section-title">Firmware Versions</div>
+      <div class="firmware-list" id="firmware-list"></div>
+
+      <!-- API Endpoints -->
+      <div class="section-title">API Endpoints (for ESP8266)</div>
+      <div class="api-box">
+        <div class="api-method">GET</div>
+        <div class="api-url" id="api-check-url">—</div>
+        <div class="api-desc">ESP8266 checks this → returns JSON with latest version info</div>
+      </div>
+      <div class="api-box api-box--secondary">
+        <div class="api-method">GET</div>
+        <div class="api-url" id="api-dl-url">—</div>
+        <div class="api-desc">ESP8266 downloads binary firmware from this URL</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
