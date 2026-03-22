@@ -5,10 +5,10 @@
 
 /* ── CONFIG ─────────────────────────────────────────────────── */
 const ADMIN_PASS   = "esp8266admin";          // Ganti password admin
-const GH_TOKEN     = "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";      // Token dengan scope: repo (bukan gist)
-const GH_OWNER     = "Ironwolf-Racing";        // Username GitHub kamu
-const GH_REPO      = "Update";        // Nama repo GitHub Pages kamu
-const GH_BRANCH    = "main";                   // Branch repo (main atau master)
+const GH_TOKEN     = "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";  // Token dengan scope: repo — buat di github.com/settings/tokens
+const GH_OWNER     = "Ironwolf-Racing";
+const GH_REPO      = "Update";
+const GH_BRANCH    = "main";
 const DB_FILE      = "firmware-db.json";       // Nama file database di repo
 
 /* ── STATE ──────────────────────────────────────────────────── */
