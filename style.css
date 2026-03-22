@@ -32,12 +32,18 @@ body {
   color:       var(--text);
   font-family: var(--mono);
   min-height:  100vh;
-  display:     flex;
-  align-items: flex-start;
-  justify-content: center;
   overflow-x:  hidden;
-  overflow-y:  auto;
-  padding:     40px 16px;
+  overflow-y:  scroll;
+}
+
+/* Wrapper pusatin konten, bukan di body langsung */
+#app-wrapper {
+  display:         flex;
+  flex-direction:  column;
+  align-items:     center;
+  justify-content: flex-start;
+  min-height:      100vh;
+  padding:         40px 16px;
 }
 
 /* Grid background */

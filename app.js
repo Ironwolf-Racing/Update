@@ -5,7 +5,7 @@
 
 /* ── CONFIG — WAJIB DIISI ───────────────────────────────────── */
 const ADMIN_PASS    = "esp8266admin";   // Ganti password admin
-const GITHUB_TOKEN  = "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";
+const GITHUB_TOKEN  = "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";
 const GIST_ID       = "03f6296a0551750111e6a2b8ceef4ab9";
 
 /* ── STATE ──────────────────────────────────────────────────── */
@@ -92,16 +92,33 @@ async function loadDB() {
     const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       headers: {
         "Authorization": `token ${GITHUB_TOKEN}`,
-        "Accept": "application/vnd.github.v3+json"
+        "Accept": "application/vnd.github.v3+json",
+        "Cache-Control": "no-cache"
       }
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(`HTTP ${res.status} — ${errBody.message || "unknown"}`);
+    }
     const gist = await res.json();
-    const content = gist.files["firmware-db.json"]?.content || "[]";
-    firmwareDB = JSON.parse(content);
+
+    // Ambil file pertama yang ada (tidak hardcode nama file)
+    const files = Object.values(gist.files);
+    if (files.length === 0) throw new Error("Gist kosong, tidak ada file");
+    const content = files[0].content || "[]";
+
+    // Simpan nama file yang ditemukan untuk saveDB
+    window._gistFileName = files[0].filename;
+
+    try {
+      firmwareDB = JSON.parse(content);
+    } catch {
+      // Kalau isi file bukan JSON valid, mulai dari array kosong
+      firmwareDB = [];
+    }
   } catch (err) {
     console.error("loadDB:", err);
-    showToast("⚠ Gagal load dari Gist: " + err.message, true);
+    showToast("⚠ Gagal load Gist: " + err.message, true);
     firmwareDB = [];
   } finally {
     showLoadingState(false);
@@ -124,7 +141,11 @@ async function saveDB() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        files: { "firmware-db.json": { content: JSON.stringify(firmwareDB, null, 2) } }
+        files: {
+          [window._gistFileName || "firmware-db.json"]: {
+            content: JSON.stringify(firmwareDB, null, 2)
+          }
+        }
       })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
