@@ -1,0 +1,266 @@
+/*
+ * ============================================================
+ *  ESP8266 AUTO OTA UPDATE — via Web Server
+ *  Paste URL check dari admin-upload.html ke OTA_CHECK_URL
+ * ============================================================
+ */
+
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266httpUpdate.h>
+#include <ArduinoJson.h>
+
+// ─── KONFIGURASI ───────────────────────────────────────────
+const char* WIFI_SSID     = "NamaWifiKamu";
+const char* WIFI_PASS     = "PasswordWifi";
+
+// URL ke firmware-db.json di raw GitHub — ESP8266 baca JSON langsung dari sini
+// Format: https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/firmware-db.json
+const char* OTA_CHECK_URL = "https://raw.githubusercontent.com/Ironwolf-Racing/Update/main/firmware-db.json";
+
+// Versi firmware yang SEDANG BERJALAN di ESP8266 ini
+// Ubah setiap kali kamu upload firmware baru ke ESP8266
+const char* CURRENT_VERSION = "v1.0.0";
+
+// Interval cek update (ms) — default 30 detik
+const unsigned long CHECK_INTERVAL = 30000;
+
+// ─── VARIABEL ─────────────────────────────────────────────
+unsigned long lastCheck = 0;
+WiFiClient wifiClient;
+
+// ──────────────────────────────────────────────────────────
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+  Serial.println("\n\n=== ESP8266 OTA Auto Update ===");
+  Serial.print("Firmware saat ini: ");
+  Serial.println(CURRENT_VERSION);
+
+  connectWiFi();
+
+  // Cek update pertama kali saat boot
+  checkAndUpdate();
+}
+
+void loop() {
+  // Reconnect WiFi kalau putus
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WiFi] Koneksi putus, reconnect...");
+    connectWiFi();
+  }
+
+  // Cek update setiap CHECK_INTERVAL ms
+  if (millis() - lastCheck > CHECK_INTERVAL) {
+    lastCheck = millis();
+    checkAndUpdate();
+  }
+
+  // ── Kode utama program kamu di sini ──
+  // ...
+  delay(100);
+}
+
+// ─── FUNGSI KONEKSI WIFI ───────────────────────────────────
+void connectWiFi() {
+  Serial.print("[WiFi] Connecting to ");
+  Serial.println(WIFI_SSID);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  int timeout = 0;
+  while (WiFi.status() != WL_CONNECTED && timeout < 30) {
+    delay(500);
+    Serial.print(".");
+    timeout++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n[WiFi] Connected!");
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\n[WiFi] GAGAL connect. Coba lagi nanti.");
+  }
+}
+
+// ─── FUNGSI CEK UPDATE ─────────────────────────────────────
+void checkAndUpdate() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  Serial.println("\n[OTA] Mengecek update...");
+  Serial.print("[OTA] URL: ");
+  Serial.println(OTA_CHECK_URL);
+
+  HTTPClient http;
+  http.begin(wifiClient, OTA_CHECK_URL);
+  http.addHeader("User-Agent", "ESP8266-OTA");
+  http.setTimeout(10000); // 10 detik timeout
+
+  int httpCode = http.GET();
+
+  if (httpCode != HTTP_CODE_OK) {
+    Serial.print("[OTA] HTTP error: ");
+    Serial.println(httpCode);
+    http.end();
+    return;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  Serial.println("[OTA] Response diterima, parsing JSON array...");
+
+  // firmware-db.json adalah array, cari yang active: true
+  // Format: [{"id":"...","version":"v1.0.0","active":true,"downloadUrl":"https://..."}]
+  DynamicJsonDocument doc(8192);
+  DeserializationError err = deserializeJson(doc, payload);
+
+  if (err) {
+    Serial.print("[OTA] JSON parse error: ");
+    Serial.println(err.c_str());
+    return;
+  }
+
+  // Cari firmware yang active
+  JsonArray arr = doc.as<JsonArray>();
+  const char* latestVersion = nullptr;
+  const char* downloadUrl   = nullptr;
+  const char* notes         = nullptr;
+  long fwSize               = 0;
+
+  for (JsonObject fw : arr) {
+    if (fw["active"] == true) {
+      latestVersion = fw["version"];
+      downloadUrl   = fw["downloadUrl"];
+      notes         = fw["notes"] | "—";
+      fwSize        = fw["size"] | 0;
+      break;
+    }
+  }
+
+  if (!latestVersion || !downloadUrl) {
+    Serial.println("[OTA] Tidak ada firmware aktif di database.");
+    return;
+  }
+
+  Serial.print("[OTA] Versi terbaru: ");
+  Serial.println(latestVersion);
+  Serial.print("[OTA] Versi saat ini: ");
+  Serial.println(CURRENT_VERSION);
+
+  // Bandingkan versi
+  if (strcmp(latestVersion, CURRENT_VERSION) == 0) {
+    Serial.println("[OTA] Firmware sudah up-to-date. Tidak perlu update.");
+    return;
+  }
+
+  // Ada update baru!
+  Serial.println("[OTA] *** UPDATE TERSEDIA! ***");
+  Serial.print("[OTA] Notes: ");
+  Serial.println(notes);
+  Serial.print("[OTA] Ukuran: ");
+  Serial.print(fwSize / 1024.0, 1);
+  Serial.println(" KB");
+  Serial.println("[OTA] Memulai download & flash...");
+
+  doOTAUpdate(downloadUrl);
+}
+
+// ─── FUNGSI OTA UPDATE ─────────────────────────────────────
+void doOTAUpdate(const char* downloadUrl) {
+  // Callback progress
+  ESPhttpUpdate.onStart([]() {
+    Serial.println("[OTA] ⬇ Download dimulai...");
+  });
+
+  ESPhttpUpdate.onProgress([](int current, int total) {
+    static int lastPct = -1;
+    int pct = (current * 100) / total;
+    if (pct != lastPct && pct % 10 == 0) {
+      Serial.print("[OTA] Progress: ");
+      Serial.print(pct);
+      Serial.println("%");
+      lastPct = pct;
+    }
+  });
+
+  ESPhttpUpdate.onEnd([]() {
+    Serial.println("[OTA] ✓ Download selesai, flashing...");
+  });
+
+  ESPhttpUpdate.onError([](int err) {
+    Serial.print("[OTA] ✗ Error: ");
+    Serial.println(ESPhttpUpdate.getLastErrorString());
+  });
+
+  ESPhttpUpdate.setLedPin(LED_BUILTIN, LOW); // LED berkedip saat update
+
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, downloadUrl);
+
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.print("[OTA] GAGAL! Error: ");
+      Serial.println(ESPhttpUpdate.getLastErrorString());
+      break;
+
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("[OTA] Server bilang tidak ada update.");
+      break;
+
+    case HTTP_UPDATE_OK:
+      // ESP8266 akan RESTART otomatis setelah update sukses
+      Serial.println("[OTA] ✓ UPDATE SUKSES! Restarting...");
+      break;
+  }
+}
+
+/*
+ * ─── CATATAN PENTING ─────────────────────────────────────────
+ *
+ * 1. LIBRARY yang dibutuhkan (install via Library Manager):
+ *    - ArduinoJson (by Benoit Blanchon) versi 6.x
+ *    - ESP8266HTTPUpdate (sudah built-in di ESP8266 core)
+ *
+ * 2. Board Settings:
+ *    - Board: "NodeMCU 1.0" atau sesuai board ESP8266 kamu
+ *    - Flash Size: pilih yang ada FS (misal 4MB (FS:2MB OTA:~1019KB))
+ *    - PENTING: Flash size harus cukup untuk OTA partition!
+ *
+ * 3. Setelah update sukses, ESP8266 restart otomatis dengan firmware baru.
+ *    Ubah CURRENT_VERSION di firmware baru sesuai versi yang diupload ke web.
+ *
+ * 4. Untuk HTTPS, gunakan:
+ *    WiFiClientSecure secureClient;
+ *    secureClient.setInsecure(); // atau set fingerprint cert
+ *    ESPhttpUpdate.update(secureClient, downloadUrl);
+ *
+ * 5. Download URL harus mengembalikan file .bin binary langsung
+ *    (Content-Type: application/octet-stream)
+ *
+ * ─── ALUR KERJA ──────────────────────────────────────────────
+ *
+ *  ESP8266 boot
+ *      │
+ *      ▼
+ *  Connect WiFi
+ *      │
+ *      ▼
+ *  GET ota-check.html ──► Parse JSON
+ *      │                      │
+ *      │              version == current? ──► Tidak ada update
+ *      │                      │
+ *      │              version != current?
+ *      ▼                      │
+ *  Download .bin dari download_url
+ *      │
+ *      ▼
+ *  Flash ke flash memory
+ *      │
+ *      ▼
+ *  Restart → jalankan firmware baru
+ *
+ * ─────────────────────────────────────────────────────────────
+ */
