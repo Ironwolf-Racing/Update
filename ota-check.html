@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>OTA Check</title>
+<style>
+  body { background:#0a0d0f; color:#00ff88; font-family:'Courier New',monospace; padding:24px; }
+  pre  { background:#0f1417; border:1px solid #1a2a1a; border-left:3px solid #00ff88; padding:16px; font-size:12px; line-height:1.7; white-space:pre-wrap; word-break:break-all; }
+  .lbl { font-size:10px; letter-spacing:3px; color:#4a6a4a; margin:16px 0 6px; text-transform:uppercase; }
+  h3   { color:#00aa55; font-size:11px; letter-spacing:2px; margin-bottom:16px; }
+  .err { color:#ff3344; }
+</style>
+</head>
+<body>
+<h3>[ ESP8266 OTA — CHECK ENDPOINT ]</h3>
+<div class="lbl">Status</div>
+<pre id="status-out">Loading...</pre>
+<div class="lbl">Response JSON (ESP8266 baca ini)</div>
+<pre id="json-out">...</pre>
+
+<script>
+/* ── CONFIG — samakan dengan app.js ── */
+const GH_OWNER  = "Ironwolf-Racing";
+const GH_REPO   = "NAMA_REPO_KAMU";      // Ganti sama dengan di app.js
+const GH_BRANCH = "main";
+const DB_FILE   = "firmware-db.json";
+
+async function checkFirmware() {
+  const url = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${DB_FILE}?t=${Date.now()}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status} — pastikan repo & branch benar`);
+
+    const db  = await res.json();
+    const fw  = db.find(f => f.active);
+
+    if (!fw) {
+      document.getElementById("status-out").textContent = "⚠ Tidak ada firmware aktif di database.";
+      document.getElementById("json-out").textContent   = JSON.stringify({ status: "no_firmware" }, null, 2);
+      return;
+    }
+
+    const resp = {
+      status:   "ok",
+      version:  fw.version,
+      name:     fw.name,
+      size:     fw.size,
+      notes:    fw.notes,
+      url:      fw.downloadUrl,
+      uploaded: fw.uploadedAt
+    };
+
+    document.getElementById("status-out").textContent =
+      `✓ Active: ${fw.name} (${fw.version})\n✓ Size: ${(fw.size/1024).toFixed(1)} KB\n✓ URL: ${fw.downloadUrl}`;
+    document.getElementById("json-out").textContent = JSON.stringify(resp, null, 2);
+
+  } catch (err) {
+    document.getElementById("status-out").innerHTML = `<span class="err">✗ Error: ${err.message}</span>`;
+    document.getElementById("json-out").textContent  = JSON.stringify({ status: "error", message: err.message }, null, 2);
+  }
+}
+
+checkFirmware();
+setInterval(checkFirmware, 10000); // refresh tiap 10 detik
+</script>
+</body>
+</html>
